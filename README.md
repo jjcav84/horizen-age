@@ -1,3 +1,7 @@
+<p align="center">
+  <a href="https://www.orkidlabs.com"><img src="assets/logo.png" alt="Orkid Labs" width="220" /></a>
+</p>
+
 # horizen-age — Privacy-Preserving Age Verification on Horizen Base L3
 
 > *Prove you're old enough without revealing your age. Pay zero fees for
