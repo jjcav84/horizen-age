@@ -64,6 +64,7 @@ contract HorizenAgeVerifier {
         uint256[] calldata publicSignals
     ) external returns (uint24 fee, uint256 negentropyBits) {
         require(threshold >= MIN_THRESHOLD && threshold <= MAX_THRESHOLD, "HorizenAge: invalid_threshold");
+        require(publicSignals.length > 0, "HorizenAge: empty_signals");
         require(!verifiedProofs[proofId], "HorizenAge: proof_already_verified");
 
         // Check ZEN staking access — Pro tier required
