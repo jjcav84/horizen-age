@@ -72,7 +72,7 @@ contract HorizenAgeVerifier {
 
         // Verify the ZK proof (Halo2/Groth16 verifier call)
         // In production, this calls the embedded verifier contract
-        require(_verifyProof(proof, publicSignals), "HorizenAge: invalid_proof");
+        require(_verifyProof(proofId, threshold, proof, publicSignals), "HorizenAge: invalid_proof");
 
         // Mark proof as verified
         verifiedProofs[proofId] = true;
@@ -102,11 +102,22 @@ contract HorizenAgeVerifier {
 
     /// @notice Verify an ECDSA signature from the trusted issuer over the public signals.
     /// @dev Proof must be a 65-byte Ethereum signature: r (32) + s (32) + v (1).
-    function _verifyProof(bytes calldata proof, uint256[] calldata publicSignals)
-        internal view returns (bool)
-    {
+    function _verifyProof(
+        bytes32 proofId,
+        uint256 threshold,
+        bytes calldata proof,
+        uint256[] calldata publicSignals
+    ) internal view returns (bool) {
         if (proof.length != 65) return false;
-        bytes32 digest = keccak256(abi.encodePacked(publicSignals));
+        // Bind signature to this specific action: proofId, threshold, chain, contract
+        // Prevents replay across different proofs or contracts
+        bytes32 digest = keccak256(abi.encodePacked(
+            proofId,
+            threshold,
+            block.chainid,
+            address(this),
+            publicSignals
+        ));
         bytes32 ethSignedHash = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", digest));
         bytes32 r;
         bytes32 s;
