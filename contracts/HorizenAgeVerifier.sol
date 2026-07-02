@@ -17,6 +17,9 @@ contract HorizenAgeVerifier {
     /// @notice ZenKinetic gate contract (fee determination)
     address public immutable zenKineticGate;
 
+    /// @notice Issuer address that signs valid age proofs
+    address public immutable issuer;
+
     /// @notice Pro tier stake threshold (1,000 ZEN with 18 decimals)
     uint256 public constant PRO_STAKE = 1_000e18;
 
@@ -38,9 +41,13 @@ contract HorizenAgeVerifier {
         uint24 feePaid
     );
 
-    constructor(address _zenToken, address _zenKineticGate) {
+    constructor(address _zenToken, address _zenKineticGate, address _issuer) {
+        require(_zenToken != address(0), "HorizenAge: zero_zenToken");
+        require(_zenKineticGate != address(0), "HorizenAge: zero_zenKineticGate");
+        require(_issuer != address(0), "HorizenAge: zero_issuer");
         zenToken = _zenToken;
         zenKineticGate = _zenKineticGate;
+        issuer = _issuer;
     }
 
     /// @notice Verify a ZK age proof on Horizen.
@@ -93,12 +100,28 @@ contract HorizenAgeVerifier {
 
     // --- Internal helpers ---
 
+    /// @notice Verify an ECDSA signature from the trusted issuer over the public signals.
+    /// @dev Proof must be a 65-byte Ethereum signature: r (32) + s (32) + v (1).
     function _verifyProof(bytes calldata proof, uint256[] calldata publicSignals)
-        internal pure returns (bool)
+        internal view returns (bool)
     {
-        // Placeholder: in production, calls the Halo2/Groth16 verifier
-        // For now, accept non-empty proofs
-        return proof.length > 0 && publicSignals.length > 0;
+        if (proof.length != 65) return false;
+        bytes32 digest = keccak256(abi.encodePacked(publicSignals));
+        bytes32 ethSignedHash = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", digest));
+        bytes32 r;
+        bytes32 s;
+        uint8 v;
+        assembly {
+            r := calldataload(proof.offset)
+            s := calldataload(add(proof.offset, 32))
+            v := byte(0, calldataload(add(proof.offset, 64)))
+        }
+        if (v < 27) v += 27;
+        if (v != 27 && v != 28) return false;
+        // Reject malleable signatures
+        if (uint256(s) > 0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5D576E7357A4501DDFE92F46681B20A0) return false;
+        address recovered = ecrecover(ethSignedHash, v, r, s);
+        return recovered == issuer;
     }
 
     function _log2Approx(uint256 x) internal pure returns (uint256) {
